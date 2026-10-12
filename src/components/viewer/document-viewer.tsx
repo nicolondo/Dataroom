@@ -7,6 +7,7 @@ import { PdfViewer } from "./pdf-viewer";
 import { Watermark } from "./watermark";
 import { useEngagementTracker } from "./use-engagement";
 import { LinkButton } from "@/components/ui";
+import { withBase } from "@/lib/base-path";
 
 type Props = {
   roomId: string;
@@ -33,7 +34,7 @@ export function DocumentViewer(props: Props) {
   }, []);
   useEngagementTracker({ documentId: props.documentId, enabled: props.tracking, getPage });
 
-  const fileUrl = `/api/files/${props.documentId}`;
+  const fileUrl = withBase(`/api/files/${props.documentId}`);
   const isPdf = props.mimeType === "application/pdf";
   const isImage = props.mimeType.startsWith("image/");
   const isText = props.mimeType.startsWith("text/");

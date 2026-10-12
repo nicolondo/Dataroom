@@ -9,6 +9,7 @@ import { formatDate, formatDuration, timeAgo } from "@/lib/format";
 import { PageHeatmap } from "@/components/room/page-heatmap";
 import { extendInvite } from "@/app/actions/invites";
 import { Button, Input } from "@/components/ui";
+import { withBase } from "@/lib/base-path";
 
 export default async function GuestDetailPage({ params }: { params: Promise<{ roomId: string; inviteId: string }> }) {
   const { roomId, inviteId } = await params;
@@ -138,7 +139,7 @@ export default async function GuestDetailPage({ params }: { params: Promise<{ ro
                         Signed by {sig.signerName} on {formatDate(sig.signedAt)}
                         {sig.ipAddress ? ` from ${sig.ipAddress}` : ""}
                       </p>
-                      <a href={`/api/nda/${sig.id}/certificate`} className="mt-2 inline-flex items-center gap-1 text-xs text-accent hover:underline">
+                      <a href={withBase(`/api/nda/${sig.id}/certificate`)} className="mt-2 inline-flex items-center gap-1 text-xs text-accent hover:underline">
                         <FileDown className="h-3.5 w-3.5" /> Download signed record (PDF)
                       </a>
                     </li>

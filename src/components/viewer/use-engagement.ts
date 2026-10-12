@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { withBase } from "@/lib/base-path";
 
 const TICK_MS = 1000;
 const FLUSH_EVERY_S = 5;
@@ -47,13 +48,13 @@ export function useEngagementTracker({ documentId, enabled, getPage }: { documen
       if (final) endedRef.current = true;
       const body = JSON.stringify({ op: final ? "end" : "heartbeat", sessionId, pages, maxPage: maxPageRef.current });
       if (final && typeof navigator.sendBeacon === "function") {
-        navigator.sendBeacon("/api/view", new Blob([body], { type: "application/json" }));
+        navigator.sendBeacon(withBase("/api/view"), new Blob([body], { type: "application/json" }));
       } else {
-        void fetch("/api/view", { method: "POST", headers: { "Content-Type": "application/json" }, body, keepalive: true, credentials: "same-origin" });
+        void fetch(withBase("/api/view"), { method: "POST", headers: { "Content-Type": "application/json" }, body, keepalive: true, credentials: "same-origin" });
       }
     };
 
-    void fetch("/api/view", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ op: "start", documentId }), credentials: "same-origin" })
+    void fetch(withBase("/api/view"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ op: "start", documentId }), credentials: "same-origin" })
       .then((r) => (r.ok ? r.json() : null))
       .then((data: { sessionId?: string } | null) => {
         if (!cancelled && data?.sessionId) sessionIdRef.current = data.sessionId;

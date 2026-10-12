@@ -5,6 +5,7 @@ import { requireRoom } from "@/lib/auth";
 import { Badge, Card, CardHeader, Table, Td, Th, Alert } from "@/components/ui";
 import { formatDate } from "@/lib/format";
 import { NdaEditor } from "@/components/room/nda-editor";
+import { withBase } from "@/lib/base-path";
 
 export const metadata = { title: "NDA" };
 
@@ -90,7 +91,7 @@ export default async function NdaPage({ params }: { params: Promise<{ roomId: st
                   <Td className="whitespace-nowrap text-muted">{formatDate(s.signedAt)}</Td>
                   <Td className="font-mono text-xs text-muted">{s.ipAddress || "—"}</Td>
                   <Td>
-                    <a href={`/api/nda/${s.id}/certificate`} className="inline-flex items-center gap-1 text-xs text-accent hover:underline">
+                    <a href={withBase(`/api/nda/${s.id}/certificate`)} className="inline-flex items-center gap-1 text-xs text-accent hover:underline">
                       <FileDown className="h-3.5 w-3.5" /> PDF
                     </a>
                   </Td>

@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { UploadCloud } from "lucide-react";
 import { Alert, Button, Select, cx } from "@/components/ui";
+import { withBase } from "@/lib/base-path";
 
 type Progress = { name: string; pct: number; error?: string; done?: boolean };
 
@@ -32,7 +33,7 @@ export function UploadDropzone({
       if (folderId) fd.append("folderId", folderId);
       if (documentId) fd.append("documentId", documentId);
       const xhr = new XMLHttpRequest();
-      xhr.open("POST", `/api/rooms/${roomId}/upload`);
+      xhr.open("POST", withBase(`/api/rooms/${roomId}/upload`));
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) setItems((prev) => prev.map((p) => (p.name === file.name ? { ...p, pct: Math.round((e.loaded / e.total) * 100) } : p)));
       };

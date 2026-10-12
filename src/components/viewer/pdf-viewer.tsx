@@ -5,6 +5,7 @@ import type { PDFDocumentProxy } from "pdfjs-dist";
 import { ZoomIn, ZoomOut, Loader2 } from "lucide-react";
 import { Button, cx } from "@/components/ui";
 import { installMapPolyfills } from "./map-polyfill";
+import { withBase } from "@/lib/base-path";
 
 type Props = {
   src: string;
@@ -36,7 +37,7 @@ export function PdfViewer({ src, onPageChange, onLoaded }: Props) {
       try {
         installMapPolyfills();
         const pdfjs = await import("pdfjs-dist");
-        pdfjs.GlobalWorkerOptions.workerSrc = "/pdf-worker-shim.mjs";
+        pdfjs.GlobalWorkerOptions.workerSrc = withBase("/pdf-worker-shim.mjs");
         const res = await fetch(src, { credentials: "same-origin" });
         if (!res.ok) throw new Error(res.status === 401 ? "Your session has ended." : `Could not load document (${res.status}).`);
         const data = await res.arrayBuffer();

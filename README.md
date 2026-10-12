@@ -82,6 +82,19 @@ src/app/api/view            engagement heartbeat endpoint
 src/components/viewer/      pdf.js viewer, watermark overlay, engagement hook
 ```
 
+## Deploying to a server (Ubuntu + nginx)
+
+`deploy/install.sh` installs Node 22, clones this repository into `/opt/dataroom`, builds it, registers a systemd service and adds a `location` block to the domain's HTTPS server in nginx. It is idempotent: re-run it to update.
+
+```bash
+# on the server, as root
+curl -fsSL https://raw.githubusercontent.com/nicolondo/dataroom/master/deploy/install.sh | bash
+```
+
+Defaults: `DOMAIN=kineticaminera.com`, `BASE_PATH=/dataroom`, `PORT=3100`. Override them as environment variables in front of `bash` to deploy elsewhere. After the first run, open `https://<domain>/dataroom/signup`, create the owner account, then set `ALLOW_SIGNUP="false"` in `/opt/dataroom/.env` and `systemctl restart dataroom`.
+
+Sub-path support comes from `BASE_PATH` (baked in at build time) plus `APP_URL` for the links in invitation emails.
+
 ## Production notes
 
 - Run behind HTTPS; cookies are marked `secure` in production.
