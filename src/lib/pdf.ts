@@ -1,0 +1,152 @@
+import "server-only";
+import { PDFDocument, StandardFonts, rgb, degrees } from "pdf-lib";
+
+/** Number of pages in a PDF, or null if it cannot be parsed. */
+export async function countPdfPages(bytes: Uint8Array): Promise<number | null> {
+  try {
+    const doc = await PDFDocument.load(bytes, { ignoreEncryption: true });
+    return doc.getPageCount();
+  } catch {
+    return null;
+  }
+}
+
+/** Stamp a diagonal, repeated watermark on every page. Used for downloads. */
+export async function watermarkPdf(bytes: Uint8Array, text: string): Promise<Uint8Array> {
+  const doc = await PDFDocument.load(bytes, { ignoreEncryption: true });
+  const font = await doc.embedFont(StandardFonts.HelveticaBold);
+  for (const page of doc.getPages()) {
+    const { width, height } = page.getSize();
+    const size = Math.max(14, Math.min(width, height) / 28);
+    const textWidth = font.widthOfTextAtSize(text, size);
+    const stepX = textWidth + 80;
+    const stepY = size * 7;
+    for (let y = -height; y < height * 2; y += stepY) {
+      for (let x = -width; x < width * 2; x += stepX) {
+        page.drawText(text, {
+          x,
+          y,
+          size,
+          font,
+          color: rgb(0.45, 0.45, 0.45),
+          opacity: 0.18,
+          rotate: degrees(30),
+        });
+      }
+    }
+    // Footer line with the same identity for printouts.
+    page.drawText(text, { x: 24, y: 12, size: 8, font, color: rgb(0.4, 0.4, 0.4), opacity: 0.8 });
+  }
+  return doc.save();
+}
+
+export interface NdaCertificateInput {
+  roomName: string;
+  ndaTitle: string;
+  ndaVersion: number;
+  ndaBody: string;
+  bodyHash: string;
+  signerName: string;
+  signerEmail: string;
+  signerTitle: string;
+  signerCompany: string;
+  signedAt: Date;
+  ipAddress: string;
+  userAgent: string;
+  signatureId: string;
+}
+
+/** Generates a signed-NDA record PDF: the full agreement text plus an audit page. */
+export async function buildNdaCertificate(input: NdaCertificateInput): Promise<Uint8Array> {
+  const doc = await PDFDocument.create();
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  const bold = await doc.embedFont(StandardFonts.HelveticaBold);
+  const pageW = 612;
+  const pageH = 792;
+  const margin = 56;
+  const maxWidth = pageW - margin * 2;
+
+  let page = doc.addPage([pageW, pageH]);
+  let y = pageH - margin;
+
+  const newPage = () => {
+    page = doc.addPage([pageW, pageH]);
+    y = pageH - margin;
+  };
+  const ensure = (needed: number) => {
+    if (y - needed < margin) newPage();
+  };
+  const writeLine = (text: string, size: number, f = font, color = rgb(0.1, 0.1, 0.1)) => {
+    ensure(size + 4);
+    page.drawText(text, { x: margin, y: y - size, size, font: f, color });
+    y -= size + 4;
+  };
+  const writeParagraph = (text: string, size: number, f = font) => {
+    for (const raw of text.split(/\r?\n/)) {
+      if (raw.trim() === "") {
+        y -= size * 0.6;
+        continue;
+      }
+      const words = raw.split(/\s+/);
+      let line = "";
+      for (const word of words) {
+        const candidate = line ? `${line} ${word}` : word;
+        if (f.widthOfTextAtSize(candidate, size) > maxWidth && line) {
+          writeLine(line, size, f);
+          line = word;
+        } else {
+          line = candidate;
+        }
+      }
+      if (line) writeLine(line, size, f);
+    }
+  };
+
+  writeLine(input.ndaTitle, 18, bold);
+  writeLine(`${input.roomName} · NDA version ${input.ndaVersion}`, 10, font, rgb(0.4, 0.4, 0.4));
+  y -= 10;
+  writeParagraph(input.ndaBody, 10.5);
+
+  newPage();
+  writeLine("Electronic Signature Record", 16, bold);
+  y -= 6;
+  const rows: Array<[string, string]> = [
+    ["Signed by", input.signerName],
+    ["Email", input.signerEmail],
+    ["Title", input.signerTitle || "—"],
+    ["Company", input.signerCompany || "—"],
+    ["Signed at (UTC)", input.signedAt.toISOString()],
+    ["IP address", input.ipAddress || "—"],
+    ["Browser", input.userAgent || "—"],
+    ["Agreement", `${input.ndaTitle} (version ${input.ndaVersion})`],
+    ["Agreement SHA-256", input.bodyHash],
+    ["Record ID", input.signatureId],
+  ];
+  for (const [k, v] of rows) {
+    ensure(30);
+    page.drawText(k, { x: margin, y: y - 10, size: 9, font: bold, color: rgb(0.35, 0.35, 0.35) });
+    const words = v.split(" ");
+    let line = "";
+    const lines: string[] = [];
+    for (const w of words) {
+      const c = line ? `${line} ${w}` : w;
+      if (font.widthOfTextAtSize(c, 10) > maxWidth - 130 && line) {
+        lines.push(line);
+        line = w;
+      } else line = c;
+    }
+    if (line) lines.push(line);
+    let ly = y - 10;
+    for (const l of lines) {
+      page.drawText(l, { x: margin + 130, y: ly, size: 10, font });
+      ly -= 13;
+    }
+    y = ly - 6;
+  }
+  y -= 10;
+  writeParagraph(
+    "By typing their name and confirming acceptance, the signer agreed to be bound by the agreement above. This record was generated by the data room at the time of signature and includes a cryptographic hash of the agreement text as presented.",
+    9,
+  );
+  return doc.save();
+}

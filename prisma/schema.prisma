@@ -1,0 +1,310 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Owners (people who run data rooms) ----------
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime  @default(now())
+  sessions     Session[]
+  rooms        DataRoom[]
+  invitesSent  Invite[]
+  answers      Question[] @relation("AnsweredBy")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// ---------- Data rooms ----------
+
+model DataRoom {
+  id                String   @id @default(cuid())
+  ownerId           String
+  owner             User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name              String
+  description       String   @default("")
+  ndaRequired       Boolean  @default(true)
+  allowDownload     Boolean  @default(false)
+  watermarkEnabled  Boolean  @default(true)
+  inviteExpiryDays  Int      @default(30)
+  notifyOnNda       Boolean  @default(true)
+  notifyOnFirstView Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  folders      Folder[]
+  documents    Document[]
+  invites      Invite[]
+  ndaVersions  NdaVersion[]
+  signatures   NdaSignature[]
+  viewSessions ViewSession[]
+  events       AuditEvent[]
+  questions    Question[]
+  downloads    Download[]
+  guestSessions GuestSession[]
+}
+
+model Folder {
+  id        String     @id @default(cuid())
+  roomId    String
+  room      DataRoom   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  name      String
+  sortOrder Int        @default(0)
+  createdAt DateTime   @default(now())
+  documents Document[]
+
+  @@index([roomId])
+}
+
+model Document {
+  id            String    @id @default(cuid())
+  roomId        String
+  room          DataRoom  @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  folderId      String?
+  folder        Folder?   @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  title         String
+  description   String    @default("")
+  fileName      String
+  mimeType      String
+  size          Int
+  storageKey    String
+  pageCount     Int?
+  version       Int       @default(1)
+  published     Boolean   @default(true)
+  // null = inherit room setting
+  allowDownload Boolean?
+  sortOrder     Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  versions     DocumentVersion[]
+  viewSessions ViewSession[]
+  questions    Question[]
+  downloads    Download[]
+
+  @@index([roomId])
+}
+
+model DocumentVersion {
+  id         String   @id @default(cuid())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  version    Int
+  fileName   String
+  mimeType   String
+  size       Int
+  storageKey String
+  pageCount  Int?
+  note       String   @default("")
+  createdAt  DateTime @default(now())
+
+  @@unique([documentId, version])
+}
+
+// ---------- NDA ----------
+
+model NdaVersion {
+  id         String         @id @default(cuid())
+  roomId     String
+  room       DataRoom       @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  version    Int
+  title      String
+  body       String
+  bodyHash   String
+  createdAt  DateTime       @default(now())
+  signatures NdaSignature[]
+
+  @@unique([roomId, version])
+}
+
+model NdaSignature {
+  id           String     @id @default(cuid())
+  roomId       String
+  room         DataRoom   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  ndaVersionId String
+  ndaVersion   NdaVersion @relation(fields: [ndaVersionId], references: [id], onDelete: Cascade)
+  guestId      String
+  guest        Guest      @relation(fields: [guestId], references: [id], onDelete: Cascade)
+  inviteId     String
+  invite       Invite     @relation(fields: [inviteId], references: [id], onDelete: Cascade)
+  signerName   String
+  signerEmail  String
+  signerTitle  String     @default("")
+  signerCompany String    @default("")
+  ipAddress    String     @default("")
+  userAgent    String     @default("")
+  signedAt     DateTime   @default(now())
+
+  @@index([roomId, guestId])
+}
+
+// ---------- Guests & invitations ----------
+
+model Guest {
+  id         String         @id @default(cuid())
+  email      String         @unique
+  name       String         @default("")
+  company    String         @default("")
+  createdAt  DateTime       @default(now())
+  invites    Invite[]
+  sessions   GuestSession[]
+  signatures NdaSignature[]
+  views      ViewSession[]
+  questions  Question[]
+  downloads  Download[]
+}
+
+model Invite {
+  id          String    @id @default(cuid())
+  roomId      String
+  room        DataRoom  @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  guestId     String
+  guest       Guest     @relation(fields: [guestId], references: [id], onDelete: Cascade)
+  invitedById String
+  invitedBy   User      @relation(fields: [invitedById], references: [id])
+  token       String    @unique
+  // pending | active | revoked
+  status      String    @default("pending")
+  message     String    @default("")
+  expiresAt   DateTime?
+  acceptedAt  DateTime?
+  revokedAt   DateTime?
+  lastSeenAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  sessions   GuestSession[]
+  signatures NdaSignature[]
+  views      ViewSession[]
+  downloads  Download[]
+
+  @@unique([roomId, guestId])
+  @@index([roomId])
+}
+
+model GuestSession {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  guestId   String
+  guest     Guest    @relation(fields: [guestId], references: [id], onDelete: Cascade)
+  inviteId  String
+  invite    Invite   @relation(fields: [inviteId], references: [id], onDelete: Cascade)
+  roomId    String
+  room      DataRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  ipAddress String   @default("")
+  userAgent String   @default("")
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([guestId])
+}
+
+// ---------- Engagement tracking ----------
+
+model ViewSession {
+  id              String     @id @default(cuid())
+  roomId          String
+  room            DataRoom   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  documentId      String
+  document        Document   @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  guestId         String
+  guest           Guest      @relation(fields: [guestId], references: [id], onDelete: Cascade)
+  inviteId        String
+  invite          Invite     @relation(fields: [inviteId], references: [id], onDelete: Cascade)
+  documentVersion Int        @default(1)
+  startedAt       DateTime   @default(now())
+  lastHeartbeatAt DateTime   @default(now())
+  endedAt         DateTime?
+  activeSeconds   Int        @default(0)
+  maxPage         Int        @default(1)
+  ipAddress       String     @default("")
+  userAgent       String     @default("")
+  pageTimes       PageTime[]
+
+  @@index([roomId, documentId])
+  @@index([roomId, guestId])
+}
+
+model PageTime {
+  id            String      @id @default(cuid())
+  viewSessionId String
+  viewSession   ViewSession @relation(fields: [viewSessionId], references: [id], onDelete: Cascade)
+  page          Int
+  seconds       Int         @default(0)
+
+  @@unique([viewSessionId, page])
+}
+
+model Download {
+  id         String   @id @default(cuid())
+  roomId     String
+  room       DataRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  guestId    String
+  guest      Guest    @relation(fields: [guestId], references: [id], onDelete: Cascade)
+  inviteId   String
+  invite     Invite   @relation(fields: [inviteId], references: [id], onDelete: Cascade)
+  watermarked Boolean @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([roomId, documentId])
+}
+
+// ---------- Q&A ----------
+
+model Question {
+  id           String    @id @default(cuid())
+  roomId       String
+  room         DataRoom  @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  documentId   String?
+  document     Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  guestId      String
+  guest        Guest     @relation(fields: [guestId], references: [id], onDelete: Cascade)
+  body         String
+  answer       String?
+  answeredAt   DateTime?
+  answeredById String?
+  answeredBy   User?     @relation("AnsweredBy", fields: [answeredById], references: [id])
+  createdAt    DateTime  @default(now())
+
+  @@index([roomId])
+}
+
+// ---------- Audit log ----------
+
+model AuditEvent {
+  id         String    @id @default(cuid())
+  roomId     String?
+  room       DataRoom? @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  // owner | guest | system
+  actorType  String
+  actorId    String?
+  actorEmail String    @default("")
+  action     String
+  targetType String?
+  targetId   String?
+  targetName String    @default("")
+  metadata   String    @default("{}")
+  ipAddress  String    @default("")
+  userAgent  String    @default("")
+  createdAt  DateTime  @default(now())
+
+  @@index([roomId, createdAt])
+}
