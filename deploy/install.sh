@@ -63,6 +63,15 @@ fi
 # Export .env so BASE_PATH/DATABASE_URL reach the build.
 set -a; . ./.env; set +a
 
+# Refuse to continue if another process (not our own service) owns the port.
+systemctl stop "$SERVICE" 2>/dev/null || true
+if ss -ltnH "sport = :${PORT}" 2>/dev/null | grep -q .; then
+  echo "Port ${PORT} is already in use by another process:"
+  ss -ltnp "sport = :${PORT}" | tail -n +2
+  echo "Pick a free port: edit PORT in ${APP_DIR}/.env and re-run this script."
+  exit 1
+fi
+
 log "Installing dependencies and building"
 npm ci --no-audit --no-fund
 npx prisma db push --skip-generate
@@ -89,41 +98,60 @@ include = f"    include {snippet};\n"
 files = [f for f in glob.glob("/etc/nginx/sites-enabled/*") + glob.glob("/etc/nginx/conf.d/*.conf") if not f.endswith(".bak-dataroom")]
 backup_dir = "/root/nginx-backups"
 os.makedirs(backup_dir, exist_ok=True)
-patched = False
-for f in files:
-    try:
-        text = open(f).read()
-    except OSError:
-        continue
-    if include.strip() in text:
-        print(f"nginx: {f} already includes the snippet"); patched = True; continue
-    out, i, changed = [], 0, False
-    # Walk server blocks by brace matching.
+
+def server_blocks(text):
+    """Yield (start, end) of each top-level server { ... } block."""
+    i = 0
     while True:
         m = re.search(r"\bserver\s*\{", text[i:])
-        if not m: out.append(text[i:]); break
-        start = i + m.start(); brace = i + m.end()
-        depth, j = 1, brace
+        if not m:
+            return
+        start = i + m.start(); j = i + m.end(); depth = 1
         while depth and j < len(text):
             if text[j] == "{": depth += 1
             elif text[j] == "}": depth -= 1
             j += 1
-        block = text[start:j]
-        names = re.findall(r"server_name\s+([^;]+);", block)
-        is_domain = any(domain in n.split() for n in names)
-        is_ssl = re.search(r"listen\s+[^;]*443", block) is not None
-        if is_domain and is_ssl:
-            block = block[:-1].rstrip() + "\n" + include + "}"
-            changed = True
-        out.append(text[i:start] + block)
+        yield start, j
         i = j
-    if changed:
-        shutil.copy(f, os.path.join(backup_dir, os.path.basename(f) + ".bak-dataroom"))
-        open(f, "w").write("".join(out))
-        print(f"nginx: added include to {f}")
-        patched = True
-if not patched:
-    print(f"nginx: no HTTPS server block for {domain} found; add this line inside it manually:\n{include}")
+
+contents = {}
+for f in files:
+    try:
+        contents[f] = open(f).read()
+    except OSError:
+        pass
+if any(include.strip() in t for t in contents.values()):
+    print("nginx: snippet already included"); sys.exit(0)
+
+# Candidates: (file, start, end, score). Prefer the domain's block, then the
+# default_server block, then a lone HTTPS block.
+cands = []
+for f, text in contents.items():
+    for start, end in server_blocks(text):
+        block = text[start:end]
+        if not re.search(r"listen\s+[^;]*443", block):
+            continue
+        names = " ".join(re.findall(r"server_name\s+([^;]+);", block)).split()
+        if domain in names or f"www.{domain}" in names:
+            score = 3
+        elif re.search(r"listen\s+[^;]*default_server", block) or "_" in names:
+            score = 2
+        else:
+            score = 1
+        cands.append((score, f, start, end))
+https_blocks = [c for c in cands]
+best = max(cands, default=None)
+if best is None or (best[0] == 1 and len(https_blocks) > 1):
+    print(f"nginx: could not decide which HTTPS server block serves {domain}; add this line inside it manually:\n{include}")
+    sys.exit(0)
+score, f, start, end = best
+text = contents[f]
+block = text[start:end]
+block = block[:-1].rstrip() + "\n" + include + "}"
+shutil.copy(f, os.path.join(backup_dir, os.path.basename(f) + ".bak-dataroom"))
+open(f, "w").write(text[:start] + block + text[end:])
+why = {3: f"server_name {domain}", 2: "default_server", 1: "the only HTTPS server block"}[score]
+print(f"nginx: added include to {f} ({why})")
 PY
 
 if nginx -t; then
