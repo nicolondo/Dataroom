@@ -4,8 +4,11 @@
 set -euo pipefail
 APP_DIR="${APP_DIR:-/opt/dataroom}"
 BRANCH="${BRANCH:-master}"
+export HOME="${HOME:-/root}"
+# The checkout is owned by the service user; allow git (running as root,
+# possibly without a readable global config) to operate on it.
+export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0='*'
 cd "$APP_DIR"
-git config --global --add safe.directory "$APP_DIR" >/dev/null 2>&1 || true
 git fetch -q --depth 1 origin "$BRANCH"
 LOCAL="$(git rev-parse HEAD)"
 REMOTE="$(git rev-parse "origin/$BRANCH")"

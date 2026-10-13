@@ -35,7 +35,10 @@ node -v && npm -v
 id -u "$SERVICE" >/dev/null 2>&1 || useradd --system --home "$APP_DIR" --shell /usr/sbin/nologin "$SERVICE"
 
 log "Fetching code into $APP_DIR"
-# The checkout is owned by the service user; let root operate on it.
+# The checkout is owned by the service user; let root operate on it even when
+# run from systemd (no HOME, so no readable global git config).
+export HOME="${HOME:-/root}"
+export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0='*'
 git config --global --add safe.directory "$APP_DIR" 2>/dev/null || true
 if [ -d "$APP_DIR/.git" ]; then
   git -C "$APP_DIR" fetch --depth 1 origin "$BRANCH"
