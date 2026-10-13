@@ -96,6 +96,8 @@ src/components/viewer/      pdf.js viewer, watermark overlay, engagement hook
 curl -fsSL https://raw.githubusercontent.com/nicolondo/dataroom/master/deploy/install.sh | bash
 ```
 
+The installer also enables a systemd timer (`dataroom-update.timer`) that checks GitHub every 5 minutes and re-runs itself when `master` changes, so pushing to the repository deploys automatically. Disable with `systemctl disable --now dataroom-update.timer` or run the installer with `AUTO_UPDATE=0`. Public signup is closed automatically once the first account exists.
+
 Defaults: `DOMAIN=kineticaminera.com`, `BASE_PATH=/dataroom`, `PORT=3100`. Override them as environment variables in front of `bash` to deploy elsewhere. After the first run, open `https://<domain>/dataroom/signup`, create the owner account, then set `ALLOW_SIGNUP="false"` in `/opt/dataroom/.env` and `systemctl restart dataroom`.
 
 Sub-path support comes from `BASE_PATH` (baked in at build time) plus `APP_URL` for the links in invitation emails.

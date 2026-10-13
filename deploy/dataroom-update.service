@@ -1,0 +1,7 @@
+[Unit]
+Description=Data Room auto-update (pull + rebuild when GitHub changes)
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /opt/dataroom/deploy/auto-update.sh

@@ -66,8 +66,8 @@ fi
 set -a; . ./.env; set +a
 
 # Refuse to continue if another process (not our own service) owns the port.
-systemctl stop "$SERVICE" 2>/dev/null || true
-if ss -ltnH "sport = :${PORT}" 2>/dev/null | grep -q .; then
+# The old version keeps serving while the new one builds; it is restarted at the end.
+if ! systemctl is-active --quiet "$SERVICE" && ss -ltnH "sport = :${PORT}" 2>/dev/null | grep -q .; then
   echo "Port ${PORT} is already in use by another process:"
   ss -ltnp "sport = :${PORT}" | tail -n +2
   echo "Pick a free port: edit PORT in ${APP_DIR}/.env and re-run this script."
@@ -80,13 +80,28 @@ npx prisma db push --skip-generate
 npm run build
 
 mkdir -p storage
+
+# Once at least one team member exists, close public signup: new members are
+# added from the Team page instead.
+USERS="$(node -e "const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();p.user.count().then(n=>{console.log(n);return p.\$disconnect()}).catch(()=>console.log(0))" 2>/dev/null || echo 0)"
+if [ "${USERS:-0}" -gt 0 ] && grep -q '^ALLOW_SIGNUP="true"' .env; then
+  sed -i 's/^ALLOW_SIGNUP=.*/ALLOW_SIGNUP="false"/' .env
+  echo "Found ${USERS} account(s): public signup closed (ALLOW_SIGNUP=false)."
+fi
+
 chown -R "$SERVICE:$SERVICE" "$APP_DIR"
 
 log "Installing systemd service"
 sed "s#/opt/dataroom#${APP_DIR}#g; s/User=dataroom/User=${SERVICE}/; s/Group=dataroom/Group=${SERVICE}/" deploy/dataroom.service > "/etc/systemd/system/${SERVICE}.service"
+sed "s#/opt/dataroom#${APP_DIR}#g" deploy/dataroom-update.service > /etc/systemd/system/dataroom-update.service
+cp deploy/dataroom-update.timer /etc/systemd/system/dataroom-update.timer
 systemctl daemon-reload
 systemctl enable "$SERVICE" >/dev/null
 systemctl restart "$SERVICE"
+if [ "${AUTO_UPDATE:-1}" = "1" ]; then
+  systemctl enable --now dataroom-update.timer >/dev/null
+  echo "Auto-update timer enabled (checks GitHub every 5 minutes)."
+fi
 
 log "Configuring nginx"
 mkdir -p /etc/nginx/snippets
@@ -178,6 +193,7 @@ cat <<MSG
 Done. Open https://${DOMAIN}${BASE_PATH}/signup to create the owner account,
 then set ALLOW_SIGNUP="false" in ${APP_DIR}/.env and run: systemctl restart ${SERVICE}
 
-Logs:   journalctl -u ${SERVICE} -f
-Update: re-run this script.
+Logs:    journalctl -u ${SERVICE} -f
+Updates: applied automatically within ~5 minutes of a push to GitHub
+         (journalctl -u dataroom-update). Disable: systemctl disable --now dataroom-update.timer
 MSG
