@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef } from "react";
-import { changeOwnPassword, updateProfile } from "@/app/actions/users";
+import { changeOwnPassword, sendTestEmail, updateProfile } from "@/app/actions/users";
 import { Alert, Field, Input } from "@/components/ui";
 import { SubmitButton } from "@/components/forms/submit-button";
 
@@ -42,6 +42,28 @@ export function ChangePasswordForm() {
         <Input name="confirm" type="password" autoComplete="new-password" minLength={8} required />
       </Field>
       <SubmitButton pendingText="Changing…">Change password</SubmitButton>
+    </form>
+  );
+}
+
+export function TestEmailForm({ configured, from }: { configured: boolean; from: string }) {
+  const [state, action] = useActionState(sendTestEmail, undefined);
+  return (
+    <form action={action} className="space-y-3">
+      {state?.error && <Alert variant="error">{state.error}</Alert>}
+      {state?.success && <Alert variant="success">{state.success}</Alert>}
+      <p className="text-sm text-muted">
+        {configured ? (
+          <>
+            Outgoing mail is configured. Messages are sent from <span className="font-medium text-foreground">{from}</span>.
+          </>
+        ) : (
+          "Outgoing mail is not configured: invitation links must be shared manually. Set SMTP_URL in the server's .env file."
+        )}
+      </p>
+      <SubmitButton variant="secondary" disabled={!configured} pendingText="Sending…">
+        Send me a test email
+      </SubmitButton>
     </form>
   );
 }

@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/auth";
 import { hashPassword, verifyPassword } from "@/lib/crypto";
 import { logEvent } from "@/lib/audit";
 import { getRequestMeta } from "@/lib/request";
+import { sendMail, emailConfigured, verifySmtp } from "@/lib/email";
 import type { FormState } from "./auth";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -91,4 +92,18 @@ export async function updateProfile(_prev: FormState, formData: FormData): Promi
   await logEvent({ actorType: "owner", actorId: actor.id, actorEmail: email, action: "owner.profile_update", ...meta });
   revalidatePath("/", "layout");
   return { success: "Profile saved." };
+}
+
+export async function sendTestEmail(): Promise<FormState> {
+  const actor = await requireUser();
+  if (!emailConfigured()) return { error: "SMTP is not configured on the server (SMTP_URL is empty in .env)." };
+  const check = await verifySmtp();
+  if (!check.ok) return { error: `SMTP connection failed: ${check.error}` };
+  const result = await sendMail({
+    to: actor.email,
+    subject: "Data Room test email",
+    text: `Hello ${actor.name},\n\nEmail delivery from your data room works. Invitations, NDA notifications and Q&A alerts will be sent from this address.`,
+  });
+  if (!result.sent) return { error: `Sending failed: ${result.error}` };
+  return { success: `Test email sent to ${actor.email}. Check your inbox (and spam folder).` };
 }

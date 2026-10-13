@@ -22,14 +22,33 @@ export function emailConfigured(): boolean {
   return Boolean(process.env.SMTP_URL);
 }
 
-export async function sendMail(opts: { to: string; subject: string; text: string; html?: string }): Promise<{ sent: boolean }> {
+export async function sendMail(opts: { to: string; subject: string; text: string; html?: string }): Promise<{ sent: boolean; error?: string }> {
   const t = getTransporter();
   if (!t) {
     console.log(`\n[email not configured] To: ${opts.to}\nSubject: ${opts.subject}\n\n${opts.text}\n`);
-    return { sent: false };
+    return { sent: false, error: "SMTP is not configured" };
   }
-  await t.sendMail({ from: process.env.EMAIL_FROM || "Data Room <noreply@example.com>", ...opts });
-  return { sent: true };
+  try {
+    await t.sendMail({ from: process.env.EMAIL_FROM || "Data Room <noreply@example.com>", ...opts });
+    return { sent: true };
+  } catch (err) {
+    // Never let a mail failure break the action that triggered it.
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`email to ${opts.to} failed: ${message}`);
+    return { sent: false, error: message };
+  }
+}
+
+/** Verifies the SMTP connection and credentials without sending anything. */
+export async function verifySmtp(): Promise<{ ok: boolean; error?: string }> {
+  const t = getTransporter();
+  if (!t) return { ok: false, error: "SMTP is not configured" };
+  try {
+    await t.verify();
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
 }
 
 export async function sendInviteEmail(args: {

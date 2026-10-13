@@ -1,6 +1,7 @@
 import { requireUser } from "@/lib/auth";
 import { Card, CardHeader, PageHeader } from "@/components/ui";
-import { ChangePasswordForm, ProfileForm } from "./forms";
+import { ChangePasswordForm, ProfileForm, TestEmailForm } from "./forms";
+import { emailConfigured } from "@/lib/email";
 
 export const metadata = { title: "My account" };
 
@@ -20,6 +21,12 @@ export default async function AccountPage() {
           <CardHeader title="Change password" />
           <div className="p-5">
             <ChangePasswordForm />
+          </div>
+        </Card>
+        <Card>
+          <CardHeader title="Email delivery" />
+          <div className="p-5">
+            <TestEmailForm configured={emailConfigured()} from={process.env.EMAIL_FROM || "(default sender)"} />
           </div>
         </Card>
       </div>
