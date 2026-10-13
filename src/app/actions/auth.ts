@@ -1,6 +1,6 @@
 "use server";
 
-import { redirect } from "next/navigation";
+import { redirectTo } from "@/lib/redirect";
 import { prisma } from "@/lib/db";
 import { hashPassword, verifyPassword } from "@/lib/crypto";
 import { createOwnerSession, destroyOwnerSession, getCurrentUser } from "@/lib/auth";
@@ -27,7 +27,7 @@ export async function signup(_prev: FormState, formData: FormData): Promise<Form
   await createOwnerSession(user.id);
   const meta = await getRequestMeta();
   await logEvent({ actorType: "owner", actorId: user.id, actorEmail: email, action: "owner.signup", ...meta });
-  redirect("/dashboard");
+  await redirectTo("/dashboard");
 }
 
 export async function login(_prev: FormState, formData: FormData): Promise<FormState> {
@@ -38,9 +38,10 @@ export async function login(_prev: FormState, formData: FormData): Promise<FormS
     return { error: "Incorrect email or password." };
   }
   await createOwnerSession(user.id);
+  await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
   const meta = await getRequestMeta();
   await logEvent({ actorType: "owner", actorId: user.id, actorEmail: email, action: "owner.login", ...meta });
-  redirect("/dashboard");
+  await redirectTo("/dashboard");
 }
 
 export async function logout(): Promise<void> {
@@ -50,5 +51,5 @@ export async function logout(): Promise<void> {
     await logEvent({ actorType: "owner", actorId: user.id, actorEmail: user.email, action: "owner.logout", ...meta });
   }
   await destroyOwnerSession();
-  redirect("/login");
+  await redirectTo("/login");
 }

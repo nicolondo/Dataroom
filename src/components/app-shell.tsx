@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Lock, LogOut } from "lucide-react";
+import { Lock, LogOut, Users } from "lucide-react";
 import { logout } from "@/app/actions/auth";
 import type { CurrentUser } from "@/lib/auth";
 import { Avatar } from "@/components/ui";
@@ -16,11 +16,19 @@ export function AppShell({ user, children }: { user: CurrentUser; children: Reac
             </span>
             Data Room
           </Link>
-          <div className="flex items-center gap-3">
-            <div className="hidden items-center gap-2 text-sm sm:flex">
-              <Avatar text={initials(user.name || user.email)} className="h-7 w-7" />
-              <span className="text-slate-700">{user.name}</span>
-            </div>
+          <div className="flex items-center gap-1 sm:gap-3">
+            <nav className="flex items-center gap-1 text-sm">
+              <Link href="/dashboard" className="rounded-md px-2 py-1.5 text-slate-700 hover:bg-slate-100">
+                Rooms
+              </Link>
+              <Link href="/users" className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-slate-700 hover:bg-slate-100">
+                <Users className="h-4 w-4" /> <span className="hidden sm:inline">Team</span>
+              </Link>
+              <Link href="/account" className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-slate-700 hover:bg-slate-100" title="My account">
+                <Avatar text={initials(user.name || user.email)} className="h-6 w-6 text-[10px]" />
+                <span className="hidden sm:inline">{user.name}</span>
+              </Link>
+            </nav>
             <form action={logout}>
               <button type="submit" className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-muted hover:bg-slate-100 hover:text-foreground" title="Sign out">
                 <LogOut className="h-4 w-4" />

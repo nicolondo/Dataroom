@@ -1,6 +1,6 @@
 "use server";
 
-import { redirect } from "next/navigation";
+import { redirectTo } from "@/lib/redirect";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { createGuestSession, destroyGuestSession, getGuestAccess } from "@/lib/guest-auth";
@@ -37,7 +37,7 @@ export async function acceptInvite(token: string, _prev: FormState, formData: Fo
       text: `${name || invite.guest.name || invite.guest.email} (${invite.guest.email}) has opened their invitation to "${invite.room.name}".`,
     });
   }
-  redirect(`/r/${invite.roomId}`);
+  await redirectTo(`/r/${invite.roomId}`);
 }
 
 export async function signNda(roomId: string, _prev: FormState, formData: FormData): Promise<FormState> {
@@ -80,7 +80,7 @@ export async function signNda(roomId: string, _prev: FormState, formData: FormDa
     });
   }
   revalidatePath(`/r/${roomId}`, "layout");
-  redirect(`/r/${roomId}`);
+  await redirectTo(`/r/${roomId}`);
 }
 
 export async function askQuestion(roomId: string, documentId: string | null, _prev: FormState, formData: FormData): Promise<FormState> {
@@ -111,5 +111,5 @@ export async function leaveRoom(roomId: string): Promise<void> {
     await logEvent({ roomId, actorType: "guest", actorId: access.guest.id, actorEmail: access.guest.email, action: "guest.logout", ...meta });
   }
   await destroyGuestSession(roomId);
-  redirect(`/r/${roomId}`);
+  await redirectTo(`/r/${roomId}`);
 }

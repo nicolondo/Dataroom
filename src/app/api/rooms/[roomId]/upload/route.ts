@@ -38,7 +38,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ roomId: string
   const { roomId } = await ctx.params;
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const room = await prisma.dataRoom.findFirst({ where: { id: roomId, ownerId: user.id } });
+  const room = await prisma.dataRoom.findUnique({ where: { id: roomId } });
   if (!room) return NextResponse.json({ error: "Room not found" }, { status: 404 });
 
   const form = await req.formData();

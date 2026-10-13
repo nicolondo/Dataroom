@@ -9,9 +9,8 @@ import { CreateRoomDialog } from "./create-room";
 export const metadata = { title: "Dashboard" };
 
 export default async function DashboardPage() {
-  const user = await requireUser();
+  await requireUser();
   const rooms = await prisma.dataRoom.findMany({
-    where: { ownerId: user.id },
     orderBy: { updatedAt: "desc" },
     include: {
       _count: { select: { documents: true, invites: true, signatures: true } },
@@ -21,7 +20,7 @@ export default async function DashboardPage() {
 
   return (
     <>
-      <PageHeader title="Data rooms" description="Each room has its own documents, NDA, guest list and analytics." action={<CreateRoomDialog />} />
+      <PageHeader title="Data rooms" description="Shared by everyone on your team. Each room has its own documents, NDA, guest list and analytics." action={<CreateRoomDialog />} />
       {rooms.length === 0 ? (
         <EmptyState
           title="No data rooms yet"

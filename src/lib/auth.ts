@@ -50,10 +50,14 @@ export async function requireUser(): Promise<CurrentUser> {
   return user;
 }
 
-/** Loads a room and verifies the current owner owns it; 404s otherwise. */
+/**
+ * Loads a room for a signed-in team member. All accounts on this installation
+ * form one team and share every data room; redirects to the dashboard if the
+ * room does not exist.
+ */
 export async function requireRoom(roomId: string) {
   const user = await requireUser();
-  const room = await prisma.dataRoom.findFirst({ where: { id: roomId, ownerId: user.id } });
+  const room = await prisma.dataRoom.findUnique({ where: { id: roomId } });
   if (!room) redirect("/dashboard");
   return { user, room };
 }

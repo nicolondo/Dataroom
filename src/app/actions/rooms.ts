@@ -1,6 +1,6 @@
 "use server";
 
-import { redirect } from "next/navigation";
+import { redirectTo } from "@/lib/redirect";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireRoom, requireUser } from "@/lib/auth";
@@ -28,7 +28,7 @@ export async function createRoom(_prev: FormState, formData: FormData): Promise<
   });
   const meta = await getRequestMeta();
   await logEvent({ roomId: room.id, actorType: "owner", actorId: user.id, actorEmail: user.email, action: "room.create", targetType: "room", targetId: room.id, targetName: name, ...meta });
-  redirect(`/rooms/${room.id}`);
+  await redirectTo(`/rooms/${room.id}`);
 }
 
 export async function updateRoomSettings(roomId: string, _prev: FormState, formData: FormData): Promise<FormState> {
@@ -63,5 +63,5 @@ export async function deleteRoom(roomId: string): Promise<void> {
   }
   const meta = await getRequestMeta();
   await logEvent({ actorType: "owner", actorId: user.id, actorEmail: user.email, action: "room.delete", targetType: "room", targetId: roomId, targetName: room.name, ...meta });
-  redirect("/dashboard");
+  await redirectTo("/dashboard");
 }

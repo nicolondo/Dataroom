@@ -17,7 +17,7 @@ export async function getRoomViewer(roomId: string): Promise<RoomViewer> {
   if (access.ok) return { kind: "guest", access };
   const user = await getCurrentUser();
   if (user) {
-    const room = await prisma.dataRoom.findFirst({ where: { id: roomId, ownerId: user.id }, include: { ndaVersions: { orderBy: { version: "desc" }, take: 1 } } });
+    const room = await prisma.dataRoom.findUnique({ where: { id: roomId }, include: { ndaVersions: { orderBy: { version: "desc" }, take: 1 } } });
     if (room) {
       const nda = room.ndaVersions[0] ?? null;
       return {

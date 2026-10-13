@@ -20,7 +20,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ docId: string }
   const wantsDownload = url.searchParams.get("download") === "1";
 
   const user = await getCurrentUser();
-  const isOwner = Boolean(user && user.id === doc.room.ownerId);
+  const isOwner = Boolean(user); // any team member
   let guest: { id: string; email: string; inviteId: string } | null = null;
   if (!isOwner) {
     const access = await resolveGuestAccessFromToken(doc.roomId, guestTokenFromRequest(req, doc.roomId));

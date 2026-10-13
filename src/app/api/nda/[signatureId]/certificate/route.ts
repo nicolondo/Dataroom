@@ -11,7 +11,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ signatureId: st
   if (!sig) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const user = await getCurrentUser();
-  let allowed = Boolean(user && user.id === sig.room.ownerId);
+  let allowed = Boolean(user); // any team member
   if (!allowed) {
     const access = await resolveGuestAccessFromToken(sig.roomId, guestTokenFromRequest(req, sig.roomId));
     allowed = access.ok && access.guest.id === sig.guestId;

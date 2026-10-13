@@ -26,6 +26,11 @@ A self-hosted virtual data room: upload confidential documents, invite reviewers
 - Dynamic watermark with the viewer's email and date over every page in the viewer; downloads (when allowed) are stamped server-side with the same identity.
 - Downloads off by default, configurable per room and overridable per document. Every download is logged.
 
+**Team**
+- Every account on an installation is a team member: all members see and manage every data room.
+- Team page to add members (name, email, initial password), reset anyone's password and remove members (their rooms are transferred). Account page to edit your profile and change your own password.
+- Set `ALLOW_SIGNUP=false` after the first account so new members can only be added from the Team page.
+
 **Collaboration and audit**
 - Q&A: guests can ask questions about the room or a specific document; owners answer from the admin side. Both are notified by email when SMTP is configured.
 - Full activity log: sign-ins, invitations, NDA signatures, views, downloads, uploads, setting changes, with IP addresses.
